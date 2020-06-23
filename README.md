@@ -1,5 +1,8 @@
 # reactorNuSpectrumGenerator
-Allows user to specify different sources of reactor neutrino isotope fluxes and a list of weights, and generates an output neutrino spectrum. Still in beta...
+Allows user to specify different sources of reactor neutrino isotope fluxes calculations, weights, and energy range, and generates an output neutrino spectrum. Still a work in progress. Things to change are:
+* Improve or give the user extrapolation options
+* Include errors authors use in calculations. More difficult when data extracted from curves.
+* Add power, core content data from real reactors
 
 # Usage:
 python reactorNuSpectrumGeneratory.py < config file >
@@ -12,7 +15,7 @@ python reactorNuSpectrumGeneratory.py < config file >
 * emax: maximum energy of output spectrum
 
 ## data_sources
-* For each isotope, filename to use from fluxData folder. Format of data is lines of "energy [in MeV], antineutrinos/fission". Comments start with a "#". If data does not cover requested (emin,emax) range, linear extrapolation is done using four closest data points.
+* For each isotope, filename to use from fluxData folder. Format of data is lines of "energy [in MeV], antineutrinos/fission". Comments start with a "#". If data does not cover requested (emin,emax) range, exponential extrapolation is done using five closest data points.
   
 ## reactor_data
 * type: "manual" currently, plan to put in example reactor data later
@@ -25,3 +28,11 @@ python reactorNuSpectrumGeneratory.py < config file >
 ## output_settings:
 * format: either "text" or "root"
 * output_name: name of the output file, with appropriate extension
+
+# Data references
+* Hayes calculations: https://arxiv.org/abs/1605.02047
+* Huber calculations: https://arxiv.org/pdf/1106.0687.pdf
+* Klapdor Pu239 calculations: https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.48.127
+* Klapdor U235 calculations: https://www.sciencedirect.com/science/article/pii/0370269382908978
+* Mueller calculations: https://arxiv.org/pdf/1101.2663.pdf
+* Avignone calculation: https://journals.aps.org/prc/pdf/10.1103/PhysRevC.22.594

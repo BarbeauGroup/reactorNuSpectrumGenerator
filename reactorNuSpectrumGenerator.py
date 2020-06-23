@@ -89,22 +89,23 @@ def fillInData(energies,data,desired_energies):
   f = interpolate.interp1d(energies,data,kind='cubic')
   
   #Fit a 5th order polynomial to the log of the existing data to extrapolate
-  #logData=numpy.log(data)
+  logData=numpy.log(data)
   #reversed_coeffs=numpy.polyfit(energies,data,5)
   #coeffs=reversed_coeffs[::-1]
   
+  nDataPointsToFit=5
   #Do linear fit to lowest four data points
-  if len(energies) < 4:
-    print("\nLess than 4 data points requested, extrapolation routine will fail! Exiting\n")
+  if len(energies) < nDataPointsToFit:
+    print("\nLess than "+str(nDataPointsToFit)+" data points available, extrapolation routine will fail! Exiting\n")
     sys.exit()
-  lowEnergies=energies[0:4]
-  lowData=data[0:4]
+  lowEnergies=energies[0:nDataPointsToFit]
+  lowData=logData[0:nDataPointsToFit]
   rev_lowCoeffs=numpy.polyfit(lowEnergies,lowData,1)
   lowCoeffs=rev_lowCoeffs[::-1]
   
   #Do linear fit to upper 5 data points
-  highEnergies=energies[-4:]
-  highData=data[-4:]
+  highEnergies=energies[-1*nDataPointsToFit:]
+  highData=logData[-1*nDataPointsToFit:]
   rev_highCoeffs=numpy.polyfit(highEnergies,highData,1)
   highCoeffs=rev_highCoeffs[::-1]
   
@@ -116,10 +117,10 @@ def fillInData(energies,data,desired_energies):
     #  dataVal=math.exp(sum)
     if desired_energy < numpy.amin(energies):
       dataToSum=[lowCoeffs[i]*math.pow(desired_energy,i) for i in range(0,len(lowCoeffs))]
-      dataVal=numpy.sum(dataToSum)
+      dataVal=math.exp(numpy.sum(dataToSum))
     elif desired_energy > numpy.amax(energies):
       dataToSum=[highCoeffs[i]*math.pow(desired_energy,i) for i in range(0,len(highCoeffs))]
-      dataVal=numpy.sum(dataToSum)
+      dataVal=math.exp(numpy.sum(dataToSum))
     elif desired_energy in energies:
       idx=numpy.where(energies == desired_energy)
       dataVal=data[idx][0]
@@ -153,9 +154,9 @@ def makeSpectrum(energies,dataSets,fractions):
 def makeRootFile(energies,spectrum,yaxisTitle):
   print("\nMaking root file "+data["output_settings"]["output_name"])
   outFile=ROOT.TFile(data["output_settings"]["output_name"],"RECREATE")
-  hist=ROOT.TH1D("hist","Spectrum;Energy (MeV);"+yaxisTitle,nbins,numpy.min(energies),numpy.max(energies))
+  hist=ROOT.TH1D("hist","Spectrum;Energy (MeV);"+yaxisTitle,nbins,numpy.amin(energies)-estep,numpy.amax(energies)+estep)
   for i,energy in enumerate(energies):
-    bin=hist.FindBin(energy)
+    bin=hist.GetXaxis().FindBin(energy)
     hist.SetBinContent(bin,spectrum[i])
   hist.Write()
   
@@ -192,7 +193,7 @@ def makeTextFile(energies,spectrum):
 emin=data["spectrum_settings"]["emin"]
 emax=data["spectrum_settings"]["emax"]
 nbins=data["spectrum_settings"]["nbins"]
-energies = numpy.linspace(emin,emax,nbins)
+energies,estep = numpy.linspace(emin,emax,nbins,retstep=1)
 
 #Load and normalize fractions
 fractions=[]
@@ -208,14 +209,15 @@ dataEnergies=[]
 dataSets=[]
 isotopes=subHeadings[1]
 for isotope in isotopes:
-  print("Loading "+str(data["data_sources"][isotope]))
+  print("\nLoading "+str(data["data_sources"][isotope])+"...")
   dataEnergy,dataSet = loadSpectrum(data["data_sources"][isotope])
   if fractions_arr[i] > 0:
     if numpy.amin(dataEnergy) > emin or numpy.amax(dataEnergy) < emax:
-      print("\nData set "+str(data["data_sources"][isotope])+" has range of ("
+      print("%%%%%%%%%%%%%%%%\n%%%%WARNING!%%%%\n%%%%%%%%%%%%%%%%")
+      print("Data set "+str(data["data_sources"][isotope])+" has range of ("
         +str(numpy.amin(dataEnergy))+","+str(numpy.amax(dataEnergy))+
         "), does not cover requested energy range of ("+str(emin)+","+str(emax)+")")
-      print("Extrapolating, results may not be reliable!\n")
+      print("Extrapolating, results may not be reliable!")
   dataSets.append(fillInData(dataEnergy,dataSet,energies))
 
 #Make spectrum
@@ -227,17 +229,22 @@ if data["spectrum_settings"]["normalized"]=="pdf":
   spectrum=[i/float(spectrumSum) for i in spectrum]
   yaxisTitle="Normalized Counts"
 elif data["spectrum_settings"]["normalized"]=="GW":
+  #Calculate number of fissions
   power=data["reactor_data"]["power"]
   fissionsPerW=3.1*math.pow(10,10)
   fissionsPerGW=fissionsPerW*math.pow(10,9)
-  spectrum=fissionsPerGW*spectrum
-  yaxisTitle="Neutrinos"
+  totalFissions=fissionsPerGW*power
+  #Normalize spectrum so total counts adds up to 1
+  spectrumSum=sum(spectrum)
+  spectrum=[i/float(spectrumSum) for i in spectrum]
+  #Scale so total spectrum adds up to totalFissions
+  spectrum=[totalFissions*i for i in spectrum]
+  yaxisTitle="Neutrinos/"+str(power)+" GW"
 else:
-  yaxisTitle="Neutrinos/fission"
+  yaxisTitle="Neutrinos/fission/MeV"
 
 #Make output
 if useROOT==1:
   makeRootFile(energies,spectrum,yaxisTitle)
 else:
   makeTextFile(energies,spectrum)
-
